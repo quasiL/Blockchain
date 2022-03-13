@@ -1,32 +1,36 @@
 import hashlib
 import json
+import queue
 
 class Blockchain:
 
     global COMPLEXITY
     global HASH_LENGTH
-    COMPLEXITY = 4
-    HASH_LENGTH = 10
+    global NUMBER_OF_TRANSACTIONS_IN_A_BLOCK
+    COMPLEXITY = 3
+    HASH_LENGTH = 12
+    NUMBER_OF_TRANSACTIONS_IN_A_BLOCK = 4 
 
     #create blockchain
     def __init__(self):
         self.blockchain = [
-            [{
+            [{"hash": COMPLEXITY*"0"},
+            {
                 "from": "",
                 "to": "",
                 "amount": 0.0
-            }, {}, {}, {"hash": COMPLEXITY*"0"}]
+            }]
         ]
-        self.stack = []
+        self.stack = queue.Queue()
     
-    #add new transaction to stack (need to write a real stack)
+    #add new transaction to stack 
     def newTransaction(self, fromUser, toUser, amount):
         transaction = {
             "from": fromUser,
             "to": toUser,
             "amount": amount,
         }
-        self.stack.append(transaction)
+        self.stack.put(transaction)
 
     #create hash from data
     def dataToHash(self, data):
@@ -50,23 +54,29 @@ class Blockchain:
 
     #creating a new block with transactions from stack, actually mining
     def mine(self):
-        j = 3
-        if len(self.stack) >= j:
+        j = NUMBER_OF_TRANSACTIONS_IN_A_BLOCK
+        if self.stack.qsize() >= j:
             new_block = []
+            prev_block = self.blockchain[-1]
+
+            prev_hash = prev_block[0]["hash"]
+            new_block.append({"prev_hash": prev_hash, "hash": "", "data_hash": ""})
             while j != 0:
-                transaction_information = self.stack.pop()
+                transaction_information = self.stack.get()
                 new_block.append({
                     "from": transaction_information["from"],
                     "to": transaction_information["to"],
                     "amount": transaction_information["amount"],
                 })
                 j -= 1
-            prev_block = self.blockchain[-1]
-            proof = self.mineProofOfWork(new_block)
-            prev_hash = prev_block[3]["hash"]
-            data_hash = self.dataToHash(new_block)
-            new_block.append({"prev_hash": prev_hash, "hash": self.hash, "data_hash": data_hash})
+
+            #mining 
+            self.mineProofOfWork(new_block)
+
+            new_block[0]["hash"] = self.hash
+            new_block[0]["data_hash"] = self.dataToHash(new_block[1:])
             self.blockchain.append(new_block)
+        else: print("The stuck isn't full yet.\n")
             
     #validate the entire blockchain
     def validateBlockchain(self):
@@ -76,15 +86,15 @@ class Blockchain:
         print("Validation process started...")
         for block in self.blockchain:
             if prev_block:
-                actual_hash = self.dataToHash(block[0:3])
-                recorded_data_hash = block[3]["data_hash"]
+                actual_hash = self.dataToHash(block[1:])
+                recorded_data_hash = block[0]["data_hash"]
 
-                recorded_prev_hash = block[3]["prev_hash"]
-                prev_hash = prev_block[3]["hash"]
+                recorded_prev_hash = block[0]["prev_hash"]
+                prev_hash = prev_block[0]["hash"]
 
-                if actual_hash != recorded_data_hash or recorded_prev_hash[0:4] != COMPLEXITY*"0":
+                if actual_hash != recorded_data_hash or recorded_prev_hash[0:COMPLEXITY] != COMPLEXITY*"0":
                     if actual_hash != recorded_data_hash: print(f"Blockchain is invalid in block {i}! Current block hash doesn't match, expected {recorded_data_hash}, actual = {actual_hash}")
-                    if recorded_prev_hash[0:4] != COMPLEXITY*"0": print(f"Blockchain is invalid in block {i}! The previous hash doesn't match, expected {prev_hash}, actual = {recorded_prev_hash}")
+                    if recorded_prev_hash[0:COMPLEXITY] != COMPLEXITY*"0": print(f"Blockchain is invalid in block {i}! The previous hash doesn't match, expected {prev_hash}, actual = {recorded_prev_hash}")
                 else:
                     print(f"Block {i} Valid hash {actual_hash}")
 
