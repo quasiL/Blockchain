@@ -7,7 +7,7 @@ class Blockchain:
     global COMPLEXITY
     global HASH_LENGTH
     global NUMBER_OF_TRANSACTIONS_IN_A_BLOCK
-    COMPLEXITY = 3
+    COMPLEXITY = 4
     HASH_LENGTH = 12
     NUMBER_OF_TRANSACTIONS_IN_A_BLOCK = 4 
 
@@ -22,7 +22,46 @@ class Blockchain:
             }]
         ]
         self.stack = queue.Queue()
-    
+        self.wallets = []
+
+    #create new wallet
+    def createWallet(self, name, amount = 0):
+        wallet = {
+            "name": name,
+            "amount": amount
+        }
+        self.wallets.append(wallet)
+
+    #try to find exiting wallet
+    def checkUser(self, name):
+        for wallet in self.wallets:
+            if wallet["name"] == name: 
+                return True
+        return False
+
+    def getBalance(self, name):
+        for wallet in self.wallets:
+            if wallet["name"] == name: 
+                return wallet["amount"]    
+
+    #check transactions in the block
+    def checkTransactionsInBlock(self, block):
+        for i in range(1, NUMBER_OF_TRANSACTIONS_IN_A_BLOCK+1, 1):
+            if not self.checkUser(block[i]["from"]) or not self.checkUser(block[i]["to"]) or not (self.getBalance(block[i]["from"]) >= block[i]["amount"]):
+                return False
+        return True
+
+    def setBalance(self, block):
+        for i in range(1, NUMBER_OF_TRANSACTIONS_IN_A_BLOCK+1, 1):
+            nameFrom = block[i]["from"]
+            nameTo = block[i]["to"]
+            amount = block[i]["amount"]
+            for wallet in self.wallets:
+                if wallet["name"] == nameFrom:
+                    wallet["amount"] = int(wallet["amount"]) - amount
+                if wallet["name"] == nameTo:
+                    wallet["amount"] = int(wallet["amount"]) + amount
+
     #add new transaction to stack 
     def newTransaction(self, fromUser, toUser, amount):
         transaction = {
@@ -71,7 +110,7 @@ class Blockchain:
                 j -= 1
 
             #mining 
-            self.mineProofOfWork(new_block)
+            self.mineProofOfWork(new_block[1:])
 
             new_block[0]["hash"] = self.hash
             new_block[0]["data_hash"] = self.dataToHash(new_block[1:])
@@ -96,7 +135,12 @@ class Blockchain:
                     if actual_hash != recorded_data_hash: print(f"Blockchain is invalid in block {i}! Current block hash doesn't match, expected {recorded_data_hash}, actual = {actual_hash}")
                     if recorded_prev_hash[0:COMPLEXITY] != COMPLEXITY*"0": print(f"Blockchain is invalid in block {i}! The previous hash doesn't match, expected {prev_hash}, actual = {recorded_prev_hash}")
                 else:
-                    print(f"Block {i} Valid hash {actual_hash}")
+                    if not self.checkTransactionsInBlock(block):
+                        print(f"Block {i}, wrong trasaction")
+                    else:
+                        #give coins
+                        self.setBalance(block)
+                        print(f"Block {i} Valid hash {actual_hash}")
 
             prev_block = block
             i += 1 
